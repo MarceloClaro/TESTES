@@ -1,71 +1,48 @@
 import streamlit as st
-import cv2
-import numpy as np
-from PIL import Image
-from tensorflow.keras.models import load_model
-from skimage.transform import resize
-from skimage.io import imread
+import pandas as pd
+import matplotlib.pyplot as plt
 
-# Função para melhorar a imagem
-def melhorar_imagem(img):
-    img = img.reshape((1, 256, 256, 3)).astype(float) / 255.
-    sub = (modelo.predict(img)).flatten()
+# Função para carregar dados
+def load_data(file):
+    try:
+        data = pd.read_csv(file)
+        return data
+    except Exception as e:
+        st.error(f"Erro ao carregar o arquivo: {e}")
+        return None
 
-    for i in range(len(sub)):
-        if sub[i] > 0.5:
-            sub[i] = 1
-        else:
-            sub[i] = 0
-    return sub
+# Função para plotar gráfico
+def plot_graph(data, x_col, y_col):
+    try:
+        plt.figure(figsize=(10, 6))
+        plt.plot(data[x_col], data[y_col], marker='o')
+        plt.title(f'{y_col} vs {x_col}')
+        plt.xlabel(x_col)
+        plt.ylabel(y_col)
+        st.pyplot(plt)
+    except Exception as e:
+        st.error(f"Erro ao plotar o gráfico: {e}")
 
-# Função para aplicar uma máscara na imagem
-def aplicar_mascara(img):
-    sub = img.reshape((1, 256, 256, 3)).astype(np.float32) / 255.
-    mask = np.array(melhorar_imagem(sub).reshape(256, 256), dtype=np.uint8)
-    sub2 = img.reshape(256, 256, 3)
-    res = cv2.bitwise_and(sub2, sub2, mask=mask)
+# Título da aplicação
+st.title('Análise de Dados Interativa com Streamlit')
 
-    return res
+# Upload de arquivo CSV
+uploaded_file = st.file_uploader("Escolha um arquivo CSV", type="csv")
 
-# Carregar o modelo
-@st.cache
-def carregar_modelo():
-    return load_model('ResU_net.h5')
-
-modelo = carregar_modelo()
-
-# Barra lateral
-with st.sidebar.header('Carregue sua Imagem de Pele'):
-    upload_file = st.sidebar.file_uploader('Escolha sua Imagem de Pele', type=['jpg', 'jpeg', 'png'])
-
-# Título da página
-st.write('# 🧠Segmentação de Lesões na Pele🧠')
-st.write('Este site foi criado por Crinex. O código do site e da segmentação está no Github. Se você deseja usar este código, faça um Fork e use.🤩🤩')
-st.write('📕 Github: https://github.com/crinex/Skin-Lesion-Segmentation-Streamlit 📕')
-
-# Tela principal
-col1, col2, col3 = st.beta_columns(3)
-with col1:
-    st.write('### Imagem Original')
-    img = imread(upload_file)
-    img = resize(img, (256, 256))
-    preview_img = resize(img, (256, 256))
-    st.image(preview_img)
-
-col2.write('### Botão')
-clicked = col2.button('Segmentar!!')
-clicked2 = col2.button('Prever Imagem')
-
-if clicked:
-    x = img
-    x = np.reshape(x, (256, 256, 3))
-    col3.write('### Imagem Segmentada')
-    mask_img = aplicar_mascara(x)
-    col3.image(mask_img)
-
-if clicked2:
-    x = img
-    x = np.reshape(x, (256, 256, 3))
-    enhance_img = melhorar_imagem(x).reshape(256, 256)
-    col3.write('### Imagem de Previsão')
-    col3.image(enhance_img)
+if uploaded_file is not None:
+    # Carregar dados
+    data = load_data(uploaded_file)
+    
+    if data is not None:
+        # Exibir dados
+        st.write("Visualização dos primeiros registros do arquivo:")
+        st.dataframe(data.head())
+        
+        # Seleção das colunas para plotagem
+        columns = data.columns.tolist()
+        x_column = st.selectbox('Selecione a coluna para o eixo X', columns)
+        y_column = st.selectbox('Selecione a coluna para o eixo Y', columns)
+        
+        # Plotar gráfico
+        if st.button('Plotar Gráfico'):
+            plot_graph(data, x_column, y_column)
